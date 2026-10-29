@@ -189,3 +189,140 @@ class AgendaApp(tk.Tk):
         self.franja.configure(bg=cfg.color_barra_menu)
         self.lbl_log.configure(bg=tema["bg"], fg=cfg.color_letra if tema is TEMAS["claro"]else tema["fg"])
         self.txt_log.configure(bg="#ffffff" if tema is TEMAS["claro"] else "#2b2b2b",fg=cfg.color_letra if tema is TEMAS["claro"] else tema["fg"])
+
+    def log(self, texto):
+        self.txt_log.configure(state="normal")
+        self.txt_log.insert("end", texto + "\n")
+        self.txt_log.see("end")
+        self.txt_log.configure(state="disabled")
+
+    def refrescar_tabla(self):
+        self.tabla.delete(*self.tabla.get_children())
+        try:
+            for c in self.store.listar():
+                self.tabla.insert("", "end", iid=str(c.id),values=(c.id, c.nombre, c.telefono, c.correo, c.ciudad))
+        except ContactoError as e:
+            messagebox.showerror("Error de archivo", str(e), parent=self)
+
+    def _error(self, e: Exception):
+        if isinstance(e, IdNoExisteError):
+            messagebox.showwarning("ID no encontrado", str(e), parent=self)
+        elif isinstance(e, PermisosError):
+            messagebox.showerror("Permisos insuficientes", str(e), parent=self)
+        else:
+            messagebox.showerror("Error", str(e), parent=self)
+        self.log(f"[ERROR] {e}")
+
+    def agregar(self):
+        base = Contacto(self.store.siguiente_id(), "", "", "", "")
+        ContactoDialog(self, "Agregar contacto", base, True, self.agregar_contacto)
+
+    def agregar_contacto(self, c: Contacto) -> bool:
+        try:
+            info = self.store.agregar(c)
+        except IdDuplicadoError as e:
+            messagebox.showerror("ID duplicado", str(e), parent=self)
+            return False
+        except ContactoError as e:
+            self._error(e)
+            return False
+        self.log(f"[AGREGAR id={c.id}] {info.texto()}")
+        self.log("            índice actualizado y SHA-256 recalculado.")
+        self.refrescar_tabla()
+        return True
+
+    def buscar(self):
+        id_ = simpledialog.askinteger("Buscar por ID", "ID del contacto:", parent=self, minvalue=1)
+        if id_ is None:
+            return
+        self.buscar_id(id_)
+
+    def buscar_id(self, id_):
+        try:
+            c, info = self.store.buscar(id_)
+        except ContactoError as e:
+            self._error(e)
+            return None
+        self.log(f"[BUSCAR id={id_}] consulta al índice -> registro #{info.registro}")
+        self.log(f"            {info.texto()}")
+        if str(c.id) in self.tabla.get_children():
+            self.tabla.selection_set(str(c.id))
+            self.tabla.see(str(c.id))
+        ResultadoV(self, "Resultado de la búsqueda",
+                        f"ID       : {c.id}\nNombre   : {c.nombre}\nTeléfono : {c.telefono}\n"
+                        f"Correo   : {c.correo}\nCiudad   : {c.ciudad}\n\n"
+                        f"Acceso aleatorio:\n  {info.texto()}", ancho=84, alto=10)
+        return c
+
+    def modificar(self):
+        id_ = simpledialog.askinteger("Modificar contacto", "ID del contacto a modificar:",parent=self, minvalue=1)
+        if id_ is None:
+            return
+        try:
+            actual, _ = self.store.buscar(id_)
+        except ContactoError as e:
+            self._error(e)
+            return
+        ContactoDialog(self, f"Modificar contacto #{id_}", actual, False,self.modificar_contacto)
+
+    def modificar_contacto(self, c: Contacto) -> bool:
+        try:
+            info = self.store.modificar(c)
+        except ContactoError as e:
+            self._error(e)
+            return False
+        self.log(f"[MODIFICAR id={c.id}] {info.texto()}")
+        self.log("            solo se sobrescribieron esos 100 bytes; SHA-256 recalculado.")
+        self.refrescar_tabla()
+        return True
+
+    def exportar_json(self):
+        try:
+            ruta = exportador.exportar_json(self.store.listar(), EXPORT_DIR)
+        except ContactoError as e:
+            self._error(e)
+            return
+        self.log(f"[EXPORTAR] JSON generado: {ruta}")
+        messagebox.showinfo("Exportar a JSON", f"Archivo generado:\n{ruta}", parent=self)
+
+    def generar_pdf(self):
+        try:
+            ruta_json = exportador.exportar_json(self.store.listar(), EXPORT_DIR)
+            ruta_pdf = exportador.generar_pdf_desde_json(ruta_json, EXPORT_DIR)
+        except ContactoError as e:
+            self._error(e)
+            return
+        self.log(f"[EXPORTAR] PDF generado a partir del JSON: {ruta_pdf}")
+        messagebox.showinfo("Reporte PDF", f"Archivo generado:\n{ruta_pdf}", parent=self)
+
+    def verificar(self):
+        ok, msg = self.store.verificar_integridad()
+        self.log(f"[INTEGRIDAD] {'OK' if ok else 'FALLA'}")
+        ResultadoV(self, "Verificación de integridad",("✔ " if ok else "✘ ") + msg, ancho=84, alto=8)
+
+    def respaldo_zip(self):
+        try:
+            ruta, tam_orig, tam_zip = self.store.crear_respaldo_zip(EXPORT_DIR)
+        except ContactoError as e:
+            self._error(e)
+            return
+        ahorro = (1 - tam_zip / tam_orig) * 100 if tam_orig else 0
+        texto = (f"Respaldo creado:\n  {ruta}\n\n"
+                 f"Tamaño original  : {tam_orig} bytes\n"
+                 f"Tamaño comprimido: {tam_zip} bytes\n"
+                 f"Reducción        : {ahorro:.1f} %")
+        self.log(f"[RESPALDO] {os.path.basename(ruta)}: {tam_orig} -> {tam_zip} bytes")
+        ResultadoV(self, "Respaldo ZIP", texto, ancho=84, alto=9)
+
+    def info_archivo(self):
+        InfoArchivV(self, self.store.info_archivo())
+
+    def abrir_settings(self):
+        SettingsWindow(self, self.config_manager, self.config_actual,on_saved=self._on_settings_guardado)
+
+    def _on_settings_guardado(self, nueva: UserConfig):
+        self.config_actual = nueva
+        self._aplicar_config_visual()
+
+if __name__ == "__main__":
+    AgendaApp().mainloop()
