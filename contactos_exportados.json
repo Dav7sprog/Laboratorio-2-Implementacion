@@ -1,0 +1,76 @@
+{
+  "generado": "2026-10-26 23:32:52",
+  "total": 10,
+  "contactos": [
+    {
+      "id": 1,
+      "nombre": "María López",
+      "telefono": "5551-2301",
+      "correo": "maria.lopez@correo.com",
+      "ciudad": "Quetzaltenango"
+    },
+    {
+      "id": 2,
+      "nombre": "Julio Pérez",
+      "telefono": "5552-1102",
+      "correo": "julio.perez@correo.com",
+      "ciudad": "Guatemala"
+    },
+    {
+      "id": 3,
+      "nombre": "Ana Sofía Muñoz",
+      "telefono": "5599-0000",
+      "correo": "ana.munoz@correo.com",
+      "ciudad": "Sacatepéquez"
+    },
+    {
+      "id": 4,
+      "nombre": "Carlos Peña",
+      "telefono": "5554-9904",
+      "correo": "carlos.pena@correo.com",
+      "ciudad": "Cobán"
+    },
+    {
+      "id": 5,
+      "nombre": "Lucía Hernández",
+      "telefono": "5555-1205",
+      "correo": "lucia.hdz@correo.com",
+      "ciudad": "Huehuetenango"
+    },
+    {
+      "id": 6,
+      "nombre": "Andrés Castañeda",
+      "telefono": "5556-7706",
+      "correo": "andres.cast@correo.com",
+      "ciudad": "Escuintla"
+    },
+    {
+      "id": 7,
+      "nombre": "Gabriela Ordóñez",
+      "telefono": "5557-3307",
+      "correo": "gaby.ordonez@correo.com",
+      "ciudad": "Retalhuleu"
+    },
+    {
+      "id": 8,
+      "nombre": "Diego Ramírez",
+      "telefono": "5558-6608",
+      "correo": "diego.ramirez@correo.com",
+      "ciudad": "Mazatenango"
+    },
+    {
+      "id": 9,
+      "nombre": "Valeria Núñez",
+      "telefono": "5559-4509",
+      "correo": "valeria.nunez@correo.com",
+      "ciudad": "Totonicapán"
+    },
+    {
+      "id": 10,
+      "nombre": "Joaquín Álvarez",
+      "telefono": "5550-2210",
+      "correo": "joaquin.alv@correo.com",
+      "ciudad": "San Marcos"
+    }
+  ]
+}
