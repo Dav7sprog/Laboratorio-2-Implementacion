@@ -301,3 +301,67 @@ class ContactStore:
         except OSError as e:
             raise ContactoError(f"Error al leer contactos.dat: {e}") from e
         return contactos
+
+    @staticmethod
+    def _sha256_archivo(path: str) -> str:
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for bloque in iter(lambda: f.read(65536), b""):
+                h.update(bloque)
+        return h.hexdigest()
+
+    def actualizar_hash(self) -> str:
+        try:
+            digest = self._sha256_archivo(self.dat_path)
+            with open(self.sha_path, "w", encoding="utf-8") as f:
+                f.write(digest + "\n")
+            return digest
+        except PermissionError as e:
+            raise PermisosError("Sin permisos para calcular/guardar el hash.") from e
+        except OSError as e:
+            raise ContactoError(f"No se pudo actualizar el hash: {e}") from e
+
+    def verificar_integridad(self, crear_si_falta: bool = False) -> Tuple[bool, str]:
+        if not os.path.exists(self.dat_path):
+            return False, "contactos.dat no existe."
+        try:
+            actual = self._sha256_archivo(self.dat_path)
+        except PermissionError:
+            return False, "Sin permisos de lectura sobre contactos.dat: no se puede verificar."
+        except OSError as e:
+            return False, f"No se pudo calcular el hash: {e}"
+
+        if not os.path.exists(self.sha_path):
+            if crear_si_falta:
+                try:
+                    self.actualizar_hash()
+                    return True, "No había contactos.sha256: se generó el hash inicial."
+                except ContactoError as e:
+                    return False, str(e)
+            return False, "No existe contactos.sha256 (no hay referencia para comparar)."
+        try:
+            with open(self.sha_path, "r", encoding="utf-8") as f:
+                guardado = f.read().strip()
+        except PermissionError:
+            return False, "Sin permisos de lectura sobre contactos.sha256."
+        except OSError as e:
+            return False, f"No se pudo leer contactos.sha256: {e}"
+
+        if actual == guardado:
+            return True, f"Integridad correcta. SHA-256 = {actual}"
+        return False, ("¡ATENCIÓN! contactos.dat fue modificado fuera de la aplicación.\n"f"  Hash guardado : {guardado}\n  Hash actual   : {actual}")
+
+    def info_archivo(self) -> Dict:
+        info = {"ruta": self.dat_path, "existe": os.path.exists(self.dat_path)}
+        if not info["existe"]:
+            return info
+        st = os.stat(self.dat_path)
+        info.update({
+            "tamano_bytes": st.st_size,
+            "registros": st.st_size // RECORD_SIZE,
+            "modificado": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+            "lectura": os.access(self.dat_path, os.R_OK),
+            "escritura": os.access(self.dat_path, os.W_OK),
+            "tam_registro": RECORD_SIZE,
+        })
+        return info
